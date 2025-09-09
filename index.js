@@ -1,5 +1,6 @@
+// CYBIX V1 WhatsApp Bot - 100% QR-less, Render/Termux ready, all-in-one index.js
 require('dotenv').config();
-const { default: makeWASocket, useSingleFileAuthState, fetchLatestBaileysVersion, DisconnectReason, jidNormalizedUser } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useSingleFileAuthState, fetchLatestBaileysVersion, DisconnectReason } = require('@whiskeysockets/baileys');
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
@@ -92,22 +93,27 @@ POWERED BY CYBIX DEVS`;
 
 // --- Helper: send banner + caption ---
 async function sendBanner(sock, jid, caption, userJid) {
-  const user = userJid ? userJid.split('@')[0] : '';
-  const text = caption
-    .replace('{user}', user)
-    .replace('{user_id}', userJid || '')
-    .replace('{users}', users.size)
-    .replace('{speed}', Date.now() - startTime)
-    .replace('{time}', new Date().toLocaleTimeString('en-US', { hour12: false }))
-    .replace('{date}', new Date().toLocaleDateString('en-GB'))
-    .replace('{memory}', (process.memoryUsage().rss / 1024 / 1024).toFixed(2));
-  await sock.sendMessage(jid, {
-    image: { url: settings.banner },
-    caption: text
-  });
+  try {
+    const user = userJid ? userJid.split('@')[0] : '';
+    const text = caption
+      .replace('{user}', user)
+      .replace('{user_id}', userJid || '')
+      .replace('{users}', users.size)
+      .replace('{speed}', Date.now() - startTime)
+      .replace('{time}', new Date().toLocaleTimeString('en-US', { hour12: false }))
+      .replace('{date}', new Date().toLocaleDateString('en-GB'))
+      .replace('{memory}', (process.memoryUsage().rss / 1024 / 1024).toFixed(2));
+    await sock.sendMessage(jid, {
+      image: { url: settings.banner },
+      caption: text
+    });
+  } catch (e) {
+    // fallback text send
+    await sock.sendMessage(jid, { text: caption });
+  }
 }
 
-// --- Baileys Auth State (SESSION_ID from .env, no QR in deployment) ---
+// --- Baileys Auth State (SESSION_ID ONLY, no QR in deployment) ---
 async function getAuthState() {
   const SESSION_FILE = './cybix-session.json';
   if (SESSION_ID) {
@@ -120,10 +126,13 @@ async function getAuthState() {
       fs.writeFileSync(SESSION_FILE, JSON.stringify(json));
       return useSingleFileAuthState(path.resolve(SESSION_FILE));
     } catch (e) {
-      console.error('Invalid SESSION_ID. QR login required.');
+      console.error('❌ Invalid SESSION_ID in .env! Please paste a VALID session JSON. Exiting...');
+      process.exit(1);
     }
   }
-  return useSingleFileAuthState('./cybix-session');
+  // No SESSION_ID: refuse to start, never show QR
+  console.error('❌ SESSION_ID missing from .env! Paste a valid session (see README). Exiting...');
+  process.exit(1);
 }
 
 // --- Command Plugins ---
@@ -435,7 +444,7 @@ async function startBot() {
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: !SESSION_ID,
+    printQRInTerminal: false, // Never show QR
     version,
     markOnlineOnConnect: true,
     syncFullHistory: false,
