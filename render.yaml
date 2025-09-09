@@ -1,20 +1,11 @@
 services:
-  - type: web
-    name: cybix-whatsapp-bot
-    env: node
-    plan: free
-    buildCommand: "npm install"
-    startCommand: "npm start"
+  - type: pserv
+    name: cybix-real-ai
+    env: docker
+    dockerfilePath: ./Dockerfile.gpu
+    plan: gpu-small   # A10G 6 GB VRAM – $0.65/h
     envVars:
-      - key: SESSION_ID
-        sync: false
-      - key: OWNER_ID
-        sync: false
-      - key: BOT_NAME
-        sync: false
-      - key: PREFIX
-        sync: false
-      - key: BANNER
-        sync: false
-    autoDeploy: true
-    healthCheckPath: /
+      - key: MAX_NEW_TOKENS
+        value: "512"
+      - key: TEMPERATURE
+        value: "0.7"
