@@ -1,7 +1,7 @@
 {
   "name": "cybix-whatsapp-bot",
   "version": "1.0.0",
-  "description": "A modular WhatsApp bot using Baileys, deployable on Render & Termux.",
+  "description": "A WhatsApp bot using Baileys, hardcoded credentials, Render & Termux ready.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -12,7 +12,6 @@
   "dependencies": {
     "@whiskeysockets/baileys": "^6.6.0",
     "axios": "^1.6.8",
-    "express": "^4.19.2",
-    "dotenv": "^16.4.5"
+    "express": "^4.19.2"
   }
 }

@@ -1,12 +1,11 @@
-// CYBIX V1 WhatsApp Bot - 100% QR-less, Render/Termux ready, all-in-one index.js
-require('dotenv').config();
-const { default: makeWASocket, useSingleFileAuthState, fetchLatestBaileysVersion, DisconnectReason } = require('@whiskeysockets/baileys');
+// CYBIX V1 WhatsApp Bot (hardcoded credentials, 100% QRless, Render/Termux safe, single file)
+const { default: makeWASocket, useSingleFileLegacyAuthState, fetchLatestBaileysVersion, DisconnectReason } = require('@whiskeysockets/baileys');
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// --- Hardcoded Config/Env (from user) ---
+// --- Hardcoded credentials/config ---
 const SESSION_ID = "Silva~ZRgyQLTb#CxfP3KcjztpwyjsibRzdlQKeLPwJ2CZ6f2_N9cetHz8";
 const OWNER_ID = "263784812740";
 const BOT_NAME = "CYBIX V1";
@@ -91,7 +90,6 @@ const menuText = () => `╭━───〔 ${settings.botName} 〕───━�
 
 POWERED BY CYBIX DEVS`;
 
-// --- Helper: send banner + caption ---
 async function sendBanner(sock, jid, caption, userJid) {
   try {
     const user = userJid ? userJid.split('@')[0] : '';
@@ -112,46 +110,41 @@ async function sendBanner(sock, jid, caption, userJid) {
   }
 }
 
-// --- Baileys Auth State (SESSION_ID ONLY, no QR in deployment) ---
-// For legacy Baileys, legacy sessions look like: "Silva~ZRgyQLTb#CxfP3KcjztpwyjsibRzdlQKeLPwJ2CZ6f2_N9cetHz8"
-// So we use it directly.
+// --- Baileys Auth State (legacy session string only) ---
 async function getAuthState() {
-  const SESSION_FILE = './cybix-session.json';
-  if (SESSION_ID) {
-    // Write the string directly
-    fs.writeFileSync(SESSION_FILE, JSON.stringify({ "session": SESSION_ID }));
-    return useSingleFileAuthState(path.resolve(SESSION_FILE));
+  const SESSION_FILE = './cybix-session-legacy.json';
+  if (!SESSION_ID || typeof SESSION_ID !== "string" || !SESSION_ID.startsWith("Silva~")) {
+    console.error('❌ Invalid or missing SESSION_ID! Exiting...');
+    process.exit(1);
   }
-  // No SESSION_ID: refuse to start, never show QR
-  console.error('❌ SESSION_ID missing! Exiting...');
-  process.exit(1);
+  try {
+    // Baileys legacy: expects a file with { "session": SESSION_STRING }
+    fs.writeFileSync(SESSION_FILE, JSON.stringify({ session: SESSION_ID }));
+    return useSingleFileLegacyAuthState(SESSION_FILE);
+  } catch (e) {
+    console.error('❌ Failed to set up session file:', e);
+    process.exit(1);
+  }
 }
 
 // --- Command Plugins ---
 const Plugins = {
   menu: {
     help: 'Show menu',
-    run: async (msg, sock) => {
-      await sendBanner(sock, msg.from, menuText(), msg.sender);
-    }
+    run: async (msg, sock) => { await sendBanner(sock, msg.from, menuText(), msg.sender); }
   },
   start: {
     help: 'Show menu',
-    run: async (msg, sock) => {
-      await sendBanner(sock, msg.from, menuText(), msg.sender);
-    }
+    run: async (msg, sock) => { await sendBanner(sock, msg.from, menuText(), msg.sender); }
   },
   ping: {
     help: 'Bot speed test',
-    run: async (msg, sock) => {
-      await sendBanner(sock, msg.from, `Pong! Speed: ${Date.now() - msg.timestamp} ms`, msg.sender);
-    }
+    run: async (msg, sock) => { await sendBanner(sock, msg.from, `Pong! Speed: ${Date.now() - msg.timestamp} ms`, msg.sender); }
   },
   runtime: {
     help: 'Show bot uptime',
     run: async (msg, sock) => {
-      const ms = Date.now() - startTime;
-      const h = Math.floor(ms / 3600000), m = Math.floor(ms/60000)%60, s = Math.floor(ms/1000)%60;
+      const ms = Date.now() - startTime, h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60;
       await sendBanner(sock, msg.from, `Uptime: ${h}h ${m}m ${s}s`, msg.sender);
     }
   },
@@ -161,7 +154,6 @@ const Plugins = {
       await sendBanner(sock, msg.from, `Repo: https://github.com/your-username/cybix-whatsapp-bot`, msg.sender);
     }
   },
-  // --- AI Commands ---
   chatgpt: {
     help: 'ChatGPT AI',
     run: async (msg, sock, args) => {
@@ -170,7 +162,7 @@ const Plugins = {
       try {
         const { data } = await axios.get(`https://api.princetechn.com/api/ai/gpt?apikey=prince&q=${encodeURIComponent(q)}`);
         await sendBanner(sock, msg.from, data.result || 'No response', msg.sender);
-      } catch (e) {
+      } catch {
         await sendBanner(sock, msg.from, 'AI API Error', msg.sender);
       }
     }
@@ -183,7 +175,7 @@ const Plugins = {
       try {
         const { data } = await axios.get(`https://api.princetechn.com/api/ai/openai?apikey=prince&q=${encodeURIComponent(q)}`);
         await sendBanner(sock, msg.from, data.result || 'No response', msg.sender);
-      } catch (e) {
+      } catch {
         await sendBanner(sock, msg.from, 'AI API Error', msg.sender);
       }
     }
@@ -196,7 +188,7 @@ const Plugins = {
       try {
         const { data } = await axios.get(`https://api.princetechn.com/api/ai/blackbox?apikey=prince&q=${encodeURIComponent(q)}`);
         await sendBanner(sock, msg.from, data.result || 'No response', msg.sender);
-      } catch (e) {
+      } catch {
         await sendBanner(sock, msg.from, 'AI API Error', msg.sender);
       }
     }
@@ -209,7 +201,7 @@ const Plugins = {
       try {
         const { data } = await axios.get(`https://api.princetechn.com/api/ai/geminiaipro?apikey=prince&q=${encodeURIComponent(q)}`);
         await sendBanner(sock, msg.from, data.result || 'No response', msg.sender);
-      } catch (e) {
+      } catch {
         await sendBanner(sock, msg.from, 'AI API Error', msg.sender);
       }
     }
@@ -222,7 +214,7 @@ const Plugins = {
       try {
         const { data } = await axios.get(`https://api.princetechn.com/api/ai/deepseek-v3?apikey=prince&q=${encodeURIComponent(q)}`);
         await sendBanner(sock, msg.from, data.result || 'No response', msg.sender);
-      } catch (e) {
+      } catch {
         await sendBanner(sock, msg.from, 'AI API Error', msg.sender);
       }
     }
@@ -238,158 +230,101 @@ const Plugins = {
           image: { url: data.url || settings.banner },
           caption: data.result || 'No result'
         });
-      } catch (e) {
+      } catch {
         await sendBanner(sock, msg.from, 'API Error', msg.sender);
       }
     }
   },
-  // --- Downloaders ---
-  apk: {
-    help: 'APK Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: apk <app name>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/download/apk?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  spotify: {
-    help: 'Spotify Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: spotify <url>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/download/spotify?apikey=prince&q=${encodeURIComponent(args[0])}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  gitclone: {
-    help: 'Git Clone',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: gitclone <repo url>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/download/gitclone?apikey=prince&q=${encodeURIComponent(args[0])}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  mediafire: {
-    help: 'Mediafire Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: mediafire <url>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/download/mediafire?apikey=prince&q=${encodeURIComponent(args[0])}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  play: {
-    help: 'Play Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: play <song name>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/download/play?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  gdrive: {
-    help: 'Google Drive Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: gdrive <url>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/download/gdrive?apikey=prince&q=${encodeURIComponent(args[0])}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  // --- Adult (all princetechn API) ---
-  xvideosearch: {
-    help: 'Xvideos Search',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: xvideosearch <query>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/adult/xvideos-search?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  xnxxsearch: {
-    help: 'XNXX Search',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: xnxxsearch <query>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/adult/xnxx-search?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  'dl-xnxx': {
-    help: 'XNXX Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: dl-xnxx <url>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/adult/xnxx-download?apikey=prince&q=${encodeURIComponent(args[0])}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  'dl-xvideo': {
-    help: 'Xvideos Downloader',
-    run: async (msg, sock, args) => {
-      if (!args[0]) return sendBanner(sock, msg.from, 'Usage: dl-xvideo <url>', msg.sender);
-      try {
-        const { data } = await axios.get(`https://api.princetechn.com/api/adult/xvideos-download?apikey=prince&q=${encodeURIComponent(args[0])}`);
-        await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
-      } catch (e) {
-        await sendBanner(sock, msg.from, 'API Error', msg.sender);
-      }
-    }
-  },
-  // --- Owner/Dev only ---
+  apk: { help: 'APK Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: apk <app name>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/download/apk?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  spotify: { help: 'Spotify Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: spotify <url>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/download/spotify?apikey=prince&q=${encodeURIComponent(args[0])}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  gitclone: { help: 'Git Clone', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: gitclone <repo url>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/download/gitclone?apikey=prince&q=${encodeURIComponent(args[0])}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  mediafire: { help: 'Mediafire Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: mediafire <url>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/download/mediafire?apikey=prince&q=${encodeURIComponent(args[0])}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  play: { help: 'Play Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: play <song name>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/download/play?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  gdrive: { help: 'Google Drive Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: gdrive <url>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/download/gdrive?apikey=prince&q=${encodeURIComponent(args[0])}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  xvideosearch: { help: 'Xvideos Search', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: xvideosearch <query>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/adult/xvideos-search?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  xnxxsearch: { help: 'XNXX Search', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: xnxxsearch <query>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/adult/xnxx-search?apikey=prince&q=${encodeURIComponent(args.join(' '))}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  'dl-xnxx': { help: 'XNXX Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: dl-xnxx <url>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/adult/xnxx-download?apikey=prince&q=${encodeURIComponent(args[0])}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
+  'dl-xvideo': { help: 'Xvideos Downloader', run: async (msg, sock, args) => {
+    if (!args[0]) return sendBanner(sock, msg.from, 'Usage: dl-xvideo <url>', msg.sender);
+    try {
+      const { data } = await axios.get(`https://api.princetechn.com/api/adult/xvideos-download?apikey=prince&q=${encodeURIComponent(args[0])}`);
+      await sendBanner(sock, msg.from, data.result || 'No result', msg.sender);
+    } catch { await sendBanner(sock, msg.from, 'API Error', msg.sender); }
+  }},
   stats: {
-    help: 'Show bot stats',
-    owner: true,
+    help: 'Show bot stats', owner: true,
     run: async (msg, sock) => {
       await sendBanner(sock, msg.from, `Users: ${users.size}\nUptime: ${(Date.now()-startTime)/1000}s\nRAM: ${(process.memoryUsage().rss/1024/1024).toFixed(2)}MB`, msg.sender);
     }
   },
   listusers: {
-    help: 'List all known users',
-    owner: true,
+    help: 'List all known users', owner: true,
     run: async (msg, sock) => {
       await sendBanner(sock, msg.from, 'Users:\n' + Array.from(users).join('\n'), msg.sender);
     }
   },
   logs: {
-    help: 'Show latest logs',
-    owner: true,
+    help: 'Show latest logs', owner: true,
     run: async (msg, sock) => {
       await sendBanner(sock, msg.from, 'Logs:\n' + logs.slice(-10).join('\n'), msg.sender);
     }
   },
   setprefix: {
-    help: 'Set command prefix',
-    owner: true,
+    help: 'Set command prefix', owner: true,
     run: async (msg, sock, args) => {
       if (!args[0]) return sendBanner(sock, msg.from, 'Usage: setprefix <prefix>', msg.sender);
       settings.prefix = args[0];
@@ -398,8 +333,7 @@ const Plugins = {
     }
   },
   setbanner: {
-    help: 'Set banner image',
-    owner: true,
+    help: 'Set banner image', owner: true,
     run: async (msg, sock, args) => {
       if (!args[0]) return sendBanner(sock, msg.from, 'Usage: setbanner <url>', msg.sender);
       settings.banner = args[0];
@@ -408,8 +342,7 @@ const Plugins = {
     }
   },
   setbotname: {
-    help: 'Set bot name',
-    owner: true,
+    help: 'Set bot name', owner: true,
     run: async (msg, sock, args) => {
       if (!args[0]) return sendBanner(sock, msg.from, 'Usage: setbotname <name>', msg.sender);
       settings.botName = args.join(' ');
@@ -419,7 +352,6 @@ const Plugins = {
   }
 };
 
-// --- Command Parsing ---
 function parseCommand(body, isOwner) {
   let prefix = settings.prefix || '.';
   if (!body.startsWith(prefix)) return { cmd: null };
@@ -429,14 +361,13 @@ function parseCommand(body, isOwner) {
   return { cmd, args };
 }
 
-// --- WhatsApp Main ---
 async function startBot() {
   const { state, saveState } = await getAuthState();
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: false, // Never show QR
+    printQRInTerminal: false,
     version,
     markOnlineOnConnect: true,
     syncFullHistory: false,
