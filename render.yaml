@@ -1,11 +1,11 @@
 services:
-  - type: pserv
-    name: cybix-real-ai
+  - type: web
+    name: cybix-x1
     env: docker
-    dockerfilePath: ./Dockerfile.gpu
-    plan: gpu-small   # A10G 6 GB VRAM – $0.65/h
+    dockerfilePath: ./Dockerfile
+    plan: gpu-small      # A10G 6 GB VRAM – $0.65/h
     envVars:
       - key: MAX_NEW_TOKENS
-        value: "512"
+        value: "1024"
       - key: TEMPERATURE
-        value: "0.7"
+        value: "0.75"
