@@ -1,6 +1,5 @@
-// CYBIX V1 WhatsApp Bot - All logic in one file, modular style
 require('dotenv').config();
-const { default: makeWASocket, useMultiFileAuthState, makeInMemoryStore, fetchLatestBaileysVersion, DisconnectReason, jidNormalizedUser } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useSingleFileAuthState, fetchLatestBaileysVersion, DisconnectReason, jidNormalizedUser } = require('@whiskeysockets/baileys');
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
@@ -113,19 +112,18 @@ async function getAuthState() {
   const SESSION_FILE = './cybix-session.json';
   if (SESSION_ID) {
     try {
-      // Support: SESSION_ID as JSON or base64 JSON
       let json;
       try { json = JSON.parse(SESSION_ID); }
       catch {
         json = JSON.parse(Buffer.from(SESSION_ID, 'base64').toString('utf-8'));
       }
       fs.writeFileSync(SESSION_FILE, JSON.stringify(json));
-      return useMultiFileAuthState(path.resolve(SESSION_FILE));
+      return useSingleFileAuthState(path.resolve(SESSION_FILE));
     } catch (e) {
       console.error('Invalid SESSION_ID. QR login required.');
     }
   }
-  return useMultiFileAuthState('./cybix-session');
+  return useSingleFileAuthState('./cybix-session');
 }
 
 // --- Command Plugins ---
@@ -432,10 +430,9 @@ function parseCommand(body, isOwner) {
 
 // --- WhatsApp Main ---
 async function startBot() {
-  const { state, saveCreds } = await getAuthState();
+  const { state, saveState } = await getAuthState();
   const { version } = await fetchLatestBaileysVersion();
 
-  const store = makeInMemoryStore({});
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: !SESSION_ID,
@@ -445,9 +442,7 @@ async function startBot() {
     getMessage: async key => null
   });
 
-  store.bind(sock.ev);
-
-  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('creds.update', saveState);
   sock.ev.on('connection.update', ({ connection, lastDisconnect }) => {
     if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
       startBot();
@@ -459,7 +454,7 @@ async function startBot() {
       const msg = m.messages?.[0];
       if (!msg?.message || msg.key.fromMe) return;
       const from = msg.key.remoteJid;
-      const sender = msg.key.participant || msg.key.fromMe ? sock.user.id : msg.key.remoteJid;
+      const sender = msg.key.participant || msg.key.remoteJid;
       let body = '';
       if (msg.message.conversation) body = msg.message.conversation;
       else if (msg.message.extendedTextMessage) body = msg.message.extendedTextMessage.text;
@@ -481,17 +476,14 @@ async function startBot() {
       const plugin = Plugins[cmd];
       await plugin.run({ from, sender, body, args, timestamp: msg.messageTimestamp * 1000 }, sock, args);
     } catch (e) {
-      // Always reply with banner + error
       try { await sendBanner(sock, m.messages[0].key.remoteJid, 'Error: ' + (e?.message || e)); } catch {}
     }
   });
 
-  // Health check for Render
   express().get('/', (req, res) => res.send('CYBIX BOT OK')).listen(PORT, () => {
     console.log(`CYBIX BOT running on port ${PORT}`);
   });
 
-  // Keep-alive (for Termux/Heroku)
   setInterval(() => {}, 60 * 1000);
 }
 
