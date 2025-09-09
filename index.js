@@ -6,13 +6,13 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-// --- Config/Env ---
-const OWNER_ID = process.env.OWNER_ID || '';
-const BOT_NAME = process.env.BOT_NAME || 'CYBIX V1';
-const DEFAULT_PREFIX = process.env.PREFIX || '.,/';
+// --- Hardcoded Config/Env (from user) ---
+const SESSION_ID = "Silva~ZRgyQLTb#CxfP3KcjztpwyjsibRzdlQKeLPwJ2CZ6f2_N9cetHz8";
+const OWNER_ID = "263784812740";
+const BOT_NAME = "CYBIX V1";
+const DEFAULT_PREFIX = ".,/";
 const PREFIXES = new Set(DEFAULT_PREFIX.split(','));
-const BANNER_URL = process.env.BANNER || 'https://files.catbox.moe/7dozqn.jpg';
-const SESSION_ID = process.env.SESSION_ID;
+const BANNER_URL = "https://files.catbox.moe/7dozqn.jpg";
 const PORT = process.env.PORT || 3000;
 const VERSION = '1.0.0';
 
@@ -108,30 +108,22 @@ async function sendBanner(sock, jid, caption, userJid) {
       caption: text
     });
   } catch (e) {
-    // fallback text send
     await sock.sendMessage(jid, { text: caption });
   }
 }
 
 // --- Baileys Auth State (SESSION_ID ONLY, no QR in deployment) ---
+// For legacy Baileys, legacy sessions look like: "Silva~ZRgyQLTb#CxfP3KcjztpwyjsibRzdlQKeLPwJ2CZ6f2_N9cetHz8"
+// So we use it directly.
 async function getAuthState() {
   const SESSION_FILE = './cybix-session.json';
   if (SESSION_ID) {
-    try {
-      let json;
-      try { json = JSON.parse(SESSION_ID); }
-      catch {
-        json = JSON.parse(Buffer.from(SESSION_ID, 'base64').toString('utf-8'));
-      }
-      fs.writeFileSync(SESSION_FILE, JSON.stringify(json));
-      return useSingleFileAuthState(path.resolve(SESSION_FILE));
-    } catch (e) {
-      console.error('❌ Invalid SESSION_ID in .env! Please paste a VALID session JSON. Exiting...');
-      process.exit(1);
-    }
+    // Write the string directly
+    fs.writeFileSync(SESSION_FILE, JSON.stringify({ "session": SESSION_ID }));
+    return useSingleFileAuthState(path.resolve(SESSION_FILE));
   }
   // No SESSION_ID: refuse to start, never show QR
-  console.error('❌ SESSION_ID missing from .env! Paste a valid session (see README). Exiting...');
+  console.error('❌ SESSION_ID missing! Exiting...');
   process.exit(1);
 }
 
