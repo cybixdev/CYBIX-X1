@@ -3,7 +3,7 @@ services:
     name: cybix-x1
     env: docker
     dockerfilePath: ./Dockerfile
-    plan: gpu-small      # A10G 6 GB VRAM – $0.65/h
+    plan: a10-1          # ← official Render GPU plan slug
     envVars:
       - key: MAX_NEW_TOKENS
         value: "1024"
